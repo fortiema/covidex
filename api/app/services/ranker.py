@@ -50,6 +50,3 @@ class Ranker:
             log_probs.extend(batch_log_probs)
 
         return log_probs
-
-
-ranker = Ranker()

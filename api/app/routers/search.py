@@ -10,22 +10,19 @@ from fastapi import APIRouter, Request
 
 from app.models import (SearchArticle, SearchLogData, SearchLogType,
                         SearchQueryResponse, SearchVertical)
-from app.services.highlighter import highlighter
-from app.services.ranker import ranker
-from app.services.searcher import searcher
 from app.settings import settings
 from app.util.logging import build_timed_logger
 from app.util.request import get_request_ip
 
 router = APIRouter()
-search_logger = build_timed_logger('search_logger', settings.search_log_path)
+search_logger = build_timed_logger('search_logger', 'search.log')
 
 
 @router.get('/search', response_model=SearchQueryResponse)
 async def get_search(request: Request, query: str, vertical: SearchVertical):
     # Get search results from Lucene index.
     try:
-        searcher_hits = searcher.search(query, vertical)
+        searcher_hits = request.app.state.searcher.search(query, vertical)
     except:
         # Sometimes errors out due to encoding bugs.
         searcher_hits = []
@@ -36,7 +33,7 @@ async def get_search(request: Request, query: str, vertical: SearchVertical):
         f'Query: {query} Document: {p} Relevant:' for p in ranked_paragraphs]
 
     # Get predictions from T5.
-    t5_scores = await ranker.predict_t5(t5_inputs)
+    t5_scores = await request.app.state.ranker.predict_t5(t5_inputs)
 
     # Sort results by T5 scores.
     results = list(zip(searcher_hits, t5_scores))
@@ -82,7 +79,7 @@ async def get_search(request: Request, query: str, vertical: SearchVertical):
         total_paragraphs = len(paragraphs)
         paragraphs = paragraphs[:settings.highlight_max_paragraphs]
 
-        all_highlights = highlighter.highlight_paragraphs(query=query, paragraphs=paragraphs)
+        all_highlights = request.app.state.highlighter.highlight_paragraphs(query=query, paragraphs=paragraphs)
         all_highlights.extend([[] for _ in range(total_paragraphs - settings.highlight_max_paragraphs)])
 
         # Update results with highlights.
@@ -134,7 +131,7 @@ async def post_clicked(data: SearchLogData):
     search_logger.info(json.dumps({
         'query_id': data.query_id,
         'type': SearchLogType.clicked,
-        'result_id ': data.result_id,
+        'result_id': data.result_id,
         'position': data.position,
         'timestamp': datetime.utcnow().isoformat()}))
 

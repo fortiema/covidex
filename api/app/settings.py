@@ -5,9 +5,9 @@ from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
+    testing: bool = False
     development: bool = True
-    search_log_path: str = 'logs/search.log'
-    related_log_path: str = 'logs/related.log'
+    log_path: str = 'logs/'
 
     # Related searcher settings
     related_bin_path: str = "index/cord19-hnsw-index/cord19-hnsw.bin"
